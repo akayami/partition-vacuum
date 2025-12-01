@@ -1,3 +1,3 @@
-module akayami.com/partition-cleaner
+module akayami.com/partition-vacuum
 
 go 1.25.4
