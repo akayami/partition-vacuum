@@ -43,6 +43,74 @@ jobs:
           path: partition-cleaner-*
           if-no-files-found: error
 
+  aur-build:
+    name: Build AUR Package
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for git describe
+
+      - name: Build Docker image
+        run: docker build -t partition-vacuum-aur -f aur/Dockerfile .
+
+      - name: Build AUR package
+        run: |
+          mkdir -p aur-dist
+          chmod 777 aur-dist # Ensure container can write to it
+          docker run --rm \
+            -v ${{ github.workspace }}/aur-dist:/output \
+            partition-vacuum-aur \
+            ${{ github.ref_name }}
+
+      - name: Publish to AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_PRIVATE_KEY" ]; then
+            echo "AUR_SSH_PRIVATE_KEY not set, skipping publishing."
+            exit 0
+          fi
+
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur_key
+          chmod 600 ~/.ssh/aur_key
+          eval $(ssh-agent -s)
+          ssh-add ~/.ssh/aur_key
+          mkdir -p ~/.ssh
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+
+          # Clone AUR repo
+          git clone ssh://aur@aur.archlinux.org/partition-vacuum.git aur-repo
+
+          # Update files
+          cp aur-dist/PKGBUILD aur-repo/
+          cp aur-dist/.SRCINFO aur-repo/
+          
+          # Commit and push
+          cd aur-repo
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add PKGBUILD .SRCINFO
+          
+          # Only commit if there are changes
+          if ! git diff --cached --quiet; then
+            git commit -m "Update to ${{ github.ref_name }}"
+            git push origin master
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Upload AUR Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: partition-vacuum-aur
+          path: aur-dist/*
+          if-no-files-found: error
+
   release:
     name: Create Release
     needs: build

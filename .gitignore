@@ -1,1 +1,5 @@
 build
+partition-vacuum
+partition-vacuum.exe
+*.pkg.tar.zst
+.SRCINFO
