@@ -26,7 +26,7 @@ func TestCleanUpDryRun(t *testing.T) {
 	targetFree := uint64(1000)
 	currentFree := uint64(0)
 
-	err = CleanUp(tempDir, targetFree, currentFree, true)
+	err = CleanUp(tempDir, targetFree, currentFree, true, false)
 	if err != nil && err.Error()[:28] != "deleted all eligible files b" {
 		t.Fatalf("CleanUp failed with unexpected error: %v", err)
 	}

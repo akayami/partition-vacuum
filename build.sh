@@ -18,7 +18,11 @@ do
     fi
 
     echo "Building for $GOOS/$GOARCH..."
-    env GOOS=$GOOS GOARCH=$GOARCH go build -o $output_name
+    
+    # Get version from git tag or commit
+    VERSION=$(git describe --tags --always --dirty)
+    
+    env GOOS=$GOOS GOARCH=$GOARCH go build -ldflags "-X main.version=$VERSION" -o $output_name
     if [ $? -ne 0 ]; then
         echo "An error has occurred! Aborting the script execution..."
         exit 1

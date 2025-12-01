@@ -16,7 +16,7 @@ type FileInfo struct {
 
 // CleanUp deletes oldest files in dir until currentFreeBytes >= targetFreeBytes
 // It also removes any directories that become empty.
-func CleanUp(dir string, targetFreeBytes uint64, currentFreeBytes uint64, dryRun bool) error {
+func CleanUp(dir string, targetFreeBytes uint64, currentFreeBytes uint64, dryRun, humanReadable bool) error {
 	// 1. Collect all files
 	var files []FileInfo
 
@@ -60,15 +60,20 @@ func CleanUp(dir string, targetFreeBytes uint64, currentFreeBytes uint64, dryRun
 				break
 			}
 
+			sizeStr := fmt.Sprintf("%d", file.Size)
+			if humanReadable {
+				sizeStr = formatBytes(uint64(file.Size))
+			}
+
 			if dryRun {
-				fmt.Printf("[DRY RUN] Would delete %s (size: %d)\n", file.Path, file.Size)
+				fmt.Printf("[DRY RUN] Would delete %s (size: %s)\n", file.Path, sizeStr)
 			} else {
 				err := os.Remove(file.Path)
 				if err != nil {
 					fmt.Printf("Failed to delete %s: %v\n", file.Path, err)
 					continue
 				}
-				fmt.Printf("Deleted %s (size: %d)\n", file.Path, file.Size)
+				fmt.Printf("Deleted %s (size: %s)\n", file.Path, sizeStr)
 			}
 			bytesDeleted += uint64(file.Size)
 		}
@@ -80,7 +85,12 @@ func CleanUp(dir string, targetFreeBytes uint64, currentFreeBytes uint64, dryRun
 	}
 
 	if currentFreeBytes < targetFreeBytes && bytesDeleted < bytesNeeded {
-		return fmt.Errorf("deleted all eligible files but still need %d bytes", bytesNeeded-bytesDeleted)
+		needed := bytesNeeded - bytesDeleted
+		neededStr := fmt.Sprintf("%d bytes", needed)
+		if humanReadable {
+			neededStr = formatBytes(needed)
+		}
+		return fmt.Errorf("deleted all eligible files but still need %s", neededStr)
 	}
 
 	return nil
