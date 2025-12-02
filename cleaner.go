@@ -14,34 +14,36 @@ type FileInfo struct {
 	Age  int64 // Unix timestamp of modification time
 }
 
-// CleanUp deletes oldest files in dir until currentFreeBytes >= targetFreeBytes
+// CleanUp deletes oldest files in dirs until currentFreeBytes >= targetFreeBytes
 // It also removes any directories that become empty.
-func CleanUp(dir string, targetFreeBytes uint64, currentFreeBytes uint64, dryRun, humanReadable bool) error {
-	// 1. Collect all files
+func CleanUp(dirs []string, targetFreeBytes uint64, currentFreeBytes uint64, dryRun, humanReadable bool) error {
+	// 1. Collect all files from all directories
 	var files []FileInfo
 
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.Type().IsRegular() {
+	for _, dir := range dirs {
+		err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.Type().IsRegular() {
+				return nil
+			}
+
+			info, err := d.Info()
+			if err != nil {
+				return nil // Skip files we can't stat
+			}
+
+			files = append(files, FileInfo{
+				Path: path,
+				Size: info.Size(),
+				Age:  info.ModTime().Unix(),
+			})
 			return nil
-		}
-
-		info, err := d.Info()
-		if err != nil {
-			return nil // Skip files we can't stat
-		}
-
-		files = append(files, FileInfo{
-			Path: path,
-			Size: info.Size(),
-			Age:  info.ModTime().Unix(),
 		})
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to walk directory %s: %w", dir, err)
+		if err != nil {
+			return fmt.Errorf("failed to walk directory %s: %w", dir, err)
+		}
 	}
 
 	// 2. Sort by Age ascending (oldest first)
@@ -80,8 +82,10 @@ func CleanUp(dir string, targetFreeBytes uint64, currentFreeBytes uint64, dryRun
 	}
 
 	// 4. Remove empty directories
-	if err := removeEmptyDirs(dir, dryRun); err != nil {
-		fmt.Printf("Error removing empty directories: %v\n", err)
+	for _, dir := range dirs {
+		if err := removeEmptyDirs(dir, dryRun); err != nil {
+			fmt.Printf("Error removing empty directories in %s: %v\n", dir, err)
+		}
 	}
 
 	if currentFreeBytes < targetFreeBytes && bytesDeleted < bytesNeeded {

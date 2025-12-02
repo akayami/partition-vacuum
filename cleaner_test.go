@@ -56,7 +56,7 @@ func TestCleanUp(t *testing.T) {
 	targetFree := uint64(150)
 	currentFree := uint64(0)
 
-	err = CleanUp(tempDir, targetFree, currentFree, false, false)
+	err = CleanUp([]string{tempDir}, targetFree, currentFree, false, false)
 	if err != nil {
 		t.Fatalf("CleanUp failed: %v", err)
 	}
