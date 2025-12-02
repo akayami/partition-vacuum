@@ -26,7 +26,6 @@ type GlobalConfig struct {
 
 // LocationConfig defines a specific partition to monitor and directories to clean
 type LocationConfig struct {
-	Partition      string    `toml:"partition"`
 	TargetDirs     []string  `toml:"target_dirs"`
 	MinFreePercent *float64  `toml:"min_free_percent"` // Optional override
 	CheckInterval  *duration `toml:"check_interval"`   // Optional override

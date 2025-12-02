@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"syscall"
 )
 
@@ -23,4 +24,28 @@ func GetDiskUsage(path string) (DiskUsage, error) {
 		Free:  free,
 		Used:  used,
 	}, nil
+}
+
+// SameFilesystem checks if all paths are on the same filesystem (device).
+func SameFilesystem(paths []string) error {
+	if len(paths) < 2 {
+		return nil
+	}
+
+	var firstDev uint64
+	for i, path := range paths {
+		var stat syscall.Stat_t
+		if err := syscall.Stat(path, &stat); err != nil {
+			return fmt.Errorf("failed to stat %s: %w", path, err)
+		}
+
+		if i == 0 {
+			firstDev = stat.Dev
+		} else {
+			if stat.Dev != firstDev {
+				return fmt.Errorf("paths %s and %s are on different filesystems", paths[0], path)
+			}
+		}
+	}
+	return nil
 }

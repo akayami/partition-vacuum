@@ -78,10 +78,10 @@ func runLegacyMode(partition, targetDir string, minFreePercent float64, checkInt
 	defer ticker.Stop()
 
 	// Run once immediately
-	checkAndClean(partition, []string{targetDir}, minFreePercent, dryRun, humanReadable)
+	checkAndClean([]string{targetDir}, minFreePercent, dryRun, humanReadable)
 
 	for range ticker.C {
-		checkAndClean(partition, []string{targetDir}, minFreePercent, dryRun, humanReadable)
+		checkAndClean([]string{targetDir}, minFreePercent, dryRun, humanReadable)
 	}
 }
 
@@ -105,6 +105,9 @@ func runConfigMode(path string) {
 	// Channel to keep main goroutine alive
 	done := make(chan bool)
 
+	// Count active locations
+	activeLocations := 0
+
 	for i, loc := range config.Locations {
 		// Apply defaults if not set
 		minFree := config.Global.MinFreePercent
@@ -124,26 +127,48 @@ func runConfigMode(path string) {
 
 		humanReadable := config.Global.HumanReadable
 
-		log.Printf("Starting monitor for partition %s (Directories: %v)", loc.Partition, loc.TargetDirs)
+		if len(loc.TargetDirs) == 0 {
+			log.Printf("Location %d has no target directories, skipping", i)
+			continue
+		}
+
+		if err := SameFilesystem(loc.TargetDirs); err != nil {
+			log.Printf("Location %d configuration error: %v", i, err)
+			continue
+		}
+
+		log.Printf("Starting monitor for directories: %v", loc.TargetDirs)
+		activeLocations++
 
 		go func(idx int, l LocationConfig, mf float64, iv time.Duration, dr, hr bool) {
 			ticker := time.NewTicker(iv)
 			defer ticker.Stop()
 
 			// Run once immediately
-			checkAndClean(l.Partition, l.TargetDirs, mf, dr, hr)
+			checkAndClean(l.TargetDirs, mf, dr, hr)
 
 			for range ticker.C {
-				checkAndClean(l.Partition, l.TargetDirs, mf, dr, hr)
+				checkAndClean(l.TargetDirs, mf, dr, hr)
 			}
 		}(i, loc, minFree, interval, dryRun, humanReadable)
+	}
+
+	if activeLocations == 0 {
+		log.Fatalf("No valid locations to monitor")
 	}
 
 	// Wait forever
 	<-done
 }
 
-func checkAndClean(partition string, targetDirs []string, minFreePercent float64, dryRun, humanReadable bool) {
+func checkAndClean(targetDirs []string, minFreePercent float64, dryRun, humanReadable bool) {
+	if len(targetDirs) == 0 {
+		return
+	}
+
+	// Use the first directory to check disk usage (we verified they are on the same FS)
+	partition := targetDirs[0]
+
 	usage, err := GetDiskUsage(partition)
 	if err != nil {
 		log.Printf("Error getting disk usage for %s: %v", partition, err)

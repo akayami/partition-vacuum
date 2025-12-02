@@ -19,7 +19,6 @@ human_readable = true
 dry_run = true
 
 [[location]]
-partition = "/"
 target_dirs = ["/tmp"]
 `
 	if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
@@ -46,8 +45,8 @@ target_dirs = ["/tmp"]
 	if len(config.Locations) != 1 {
 		t.Fatalf("Expected 1 location, got %d", len(config.Locations))
 	}
-	if config.Locations[0].Partition != "/" {
-		t.Errorf("Expected partition /, got %s", config.Locations[0].Partition)
+	if len(config.Locations[0].TargetDirs) != 1 || config.Locations[0].TargetDirs[0] != "/tmp" {
+		t.Errorf("Expected target dir /tmp, got %v", config.Locations[0].TargetDirs)
 	}
 }
 
@@ -61,7 +60,6 @@ func TestLoadConfig_Directory(t *testing.T) {
 check_interval = "10m"
 
 [[location]]
-partition = "/"
 target_dirs = ["/tmp"]
 `
 	if err := os.WriteFile(file1, []byte(content1), 0644); err != nil {
@@ -75,7 +73,6 @@ target_dirs = ["/tmp"]
 min_free_percent = 15.0
 
 [[location]]
-partition = "/home"
 target_dirs = ["/home/user/cache"]
 `
 	if err := os.WriteFile(file2, []byte(content2), 0644); err != nil {
@@ -100,10 +97,10 @@ target_dirs = ["/home/user/cache"]
 
 	// Order depends on file globbing, usually alphabetical
 	// We expect "/" then "/home" because 01_main < 02_extra
-	if config.Locations[0].Partition != "/" {
-		t.Errorf("Expected first partition /, got %s", config.Locations[0].Partition)
+	if len(config.Locations[0].TargetDirs) != 1 || config.Locations[0].TargetDirs[0] != "/tmp" {
+		t.Errorf("Expected first target dir /tmp, got %v", config.Locations[0].TargetDirs)
 	}
-	if config.Locations[1].Partition != "/home" {
-		t.Errorf("Expected second partition /home, got %s", config.Locations[1].Partition)
+	if len(config.Locations[1].TargetDirs) != 1 || config.Locations[1].TargetDirs[0] != "/home/user/cache" {
+		t.Errorf("Expected second target dir /home/user/cache, got %v", config.Locations[1].TargetDirs)
 	}
 }

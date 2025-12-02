@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 )
@@ -33,4 +35,32 @@ func GetDiskUsage(path string) (DiskUsage, error) {
 		Free:  uint64(freeBytesAvailableToCaller), // Use available to caller, not total free
 		Used:  uint64(totalNumberOfBytes - freeBytesAvailableToCaller),
 	}, nil
+}
+
+// SameFilesystem checks if all paths are on the same filesystem (volume).
+func SameFilesystem(paths []string) error {
+	if len(paths) < 2 {
+		return nil
+	}
+
+	var firstVol string
+	for i, path := range paths {
+		vol := filepath.VolumeName(path)
+		if vol == "" {
+			// If VolumeName returns empty (e.g. relative path), we might need absolute path
+			abs, err := filepath.Abs(path)
+			if err == nil {
+				vol = filepath.VolumeName(abs)
+			}
+		}
+
+		if i == 0 {
+			firstVol = vol
+		} else {
+			if vol != firstVol {
+				return fmt.Errorf("paths %s and %s are on different volumes", paths[0], path)
+			}
+		}
+	}
+	return nil
 }
