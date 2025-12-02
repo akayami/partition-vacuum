@@ -89,12 +89,14 @@ jobs:
           # Update files
           cp aur-dist/PKGBUILD aur-repo/
           cp aur-dist/.SRCINFO aur-repo/
+          cp aur-dist/partition-vacuum.service aur-repo/
+          cp aur-dist/config.toml aur-repo/
           
           # Commit and push
           cd aur-repo
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
-          git add PKGBUILD .SRCINFO
+          git add PKGBUILD .SRCINFO partition-vacuum.service config.toml
           
           # Only commit if there are changes
           if ! git diff --cached --quiet; then

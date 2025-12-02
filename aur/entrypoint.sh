@@ -40,6 +40,6 @@ if [ -d "/output" ]; then
     echo "Copying artifacts to /output..."
     sudo cp *.pkg.tar.zst /output/
     # Also copy PKGBUILD and .SRCINFO for reference
-    sudo cp PKGBUILD .SRCINFO /output/
+    sudo cp PKGBUILD .SRCINFO partition-vacuum.service config.toml /output/
     sudo chown -R $(stat -c "%u:%g" /output) /output
 fi

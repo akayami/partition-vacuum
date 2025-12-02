@@ -2,3 +2,8 @@
 check_interval = "60m"
 min_free_percent = 1.0
 human_readable = true
+dry_run = true
+
+#[[locations]]
+#partition = "/"
+#target_dirs = ["/tmp", "/tmp2"]
