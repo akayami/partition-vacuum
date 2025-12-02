@@ -1,4 +1,4 @@
-# Partition Cleaner Daemon
+# Partition Vacuum Daemon
 
 A lightweight Go daemon that monitors disk usage on a specified partition and automatically deletes the oldest files from a target directory when free space falls below a configured threshold.
 
@@ -15,7 +15,7 @@ A lightweight Go daemon that monitors disk usage on a specified partition and au
 To build the daemon, run:
 
 ```bash
-go build -o partition-cleaner
+go build -o partition-vacuum
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ go build -o partition-cleaner
 Run the binary with the required flags:
 
 ```bash
-./partition-cleaner -partition <mount_point> -targetDir <cleanup_directory> [options]
+./partition-vacuum -partition <mount_point> -targetDir <cleanup_directory> [options]
 ```
 
 ### Flags
@@ -41,7 +41,7 @@ Run the binary with the required flags:
 Monitor the root partition `/` and maintain at least **15%** free space by deleting old files from `/var/log/myapp`, checking every **5 minutes**:
 
 ```bash
-./partition-cleaner \
+./partition-vacuum \
   -partition / \
   -targetDir /var/log/myapp \
   -minFreePercent 15 \

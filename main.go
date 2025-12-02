@@ -23,7 +23,7 @@ func main() {
 	flag.Parse()
 
 	if *v {
-		fmt.Printf("Partition Cleaner version %s\n", version)
+		fmt.Printf("Partition Vacuum version %s\n", version)
 		os.Exit(0)
 	}
 
@@ -35,7 +35,7 @@ func main() {
 	// Combine flags
 	humanReadable := *human
 
-	log.Printf("Starting Partition Cleaner Daemon")
+	log.Printf("Starting Partition Vacuum Daemon")
 	log.Printf("Monitoring partition: %s", *partition)
 	log.Printf("Target directory: %s", *targetDir)
 	log.Printf("Minimum free space: %.2f%%", *minFreePercent)

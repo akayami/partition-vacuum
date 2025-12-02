@@ -30,7 +30,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          OUTPUT_NAME="partition-cleaner-${{ matrix.goos }}-${{ matrix.goarch }}"
+          OUTPUT_NAME="partition-vacuum-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             OUTPUT_NAME="${OUTPUT_NAME}.exe"
           fi
@@ -39,8 +39,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: partition-cleaner-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: partition-cleaner-*
+          name: partition-vacuum-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: partition-vacuum-*
           if-no-files-found: error
 
   aur-build:
