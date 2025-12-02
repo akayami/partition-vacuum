@@ -7,8 +7,14 @@ arch=('x86_64' 'aarch64')
 url="https://github.com/akayami/partition-vacuum"
 license=('MIT')
 makedepends=('go' 'git')
-source=("partition-vacuum::git+https://github.com/akayami/partition-vacuum.git")
-sha256sums=('SKIP')
+source=("partition-vacuum::git+https://github.com/akayami/partition-vacuum.git"
+        "partition-vacuum.service"
+        "config.toml")
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP')
+
+backup=('etc/partition-vacuum/config.toml')
 
 pkgver() {
     cd "${srcdir}/partition-vacuum"
@@ -32,4 +38,8 @@ package() {
     install -Dm755 "${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
     install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
     install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+    
+    cd "${srcdir}"
+    install -Dm644 partition-vacuum.service "${pkgdir}/usr/lib/systemd/system/partition-vacuum.service"
+    install -Dm644 config.toml "${pkgdir}/etc/partition-vacuum/config.toml"
 }

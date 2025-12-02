@@ -22,6 +22,8 @@ sed -i "s/^pkgver=.*/pkgver=${VERSION}/" aur/PKGBUILD
 
 # Move PKGBUILD to root of workdir for makepkg
 cp aur/PKGBUILD .
+cp aur/partition-vacuum.service .
+cp aur/config.toml .
 
 # Update checksums (though we use SKIP for local source, good practice if we change source later)
 updpkgsums

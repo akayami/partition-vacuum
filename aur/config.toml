@@ -1,0 +1,4 @@
+[global]
+check_interval = "60m"
+min_free_percent = 1.0
+human_readable = true
