@@ -76,3 +76,61 @@ func TestCleanUp(t *testing.T) {
 		t.Errorf("file3.txt should still exist")
 	}
 }
+
+func TestCleanUp_MultipleDirectories(t *testing.T) {
+	tempDir := t.TempDir()
+	dir1 := filepath.Join(tempDir, "dir1")
+	dir2 := filepath.Join(tempDir, "dir2")
+
+	if err := os.Mkdir(dir1, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(dir2, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create files:
+	// dir1/old.txt (age 3h, size 100)
+	// dir2/mid.txt (age 2h, size 100)
+	// dir1/new.txt (age 1h, size 100)
+
+	files := []struct {
+		path string
+		age  time.Duration
+	}{
+		{filepath.Join(dir1, "old.txt"), 3 * time.Hour},
+		{filepath.Join(dir2, "mid.txt"), 2 * time.Hour},
+		{filepath.Join(dir1, "new.txt"), 1 * time.Hour},
+	}
+
+	for _, f := range files {
+		if err := os.WriteFile(f.path, make([]byte, 100), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(f.path, time.Now(), time.Now().Add(-f.age)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Total size: 300.
+	// Target free: 150 (needs to free 150+ bytes).
+	// Start free: 0.
+	// Should delete old.txt (100) -> free 100.
+	// Should delete mid.txt (100) -> free 200. Stop.
+	// new.txt should remain.
+
+	err := CleanUp([]string{dir1, dir2}, 150, 0, false, false)
+	if err != nil {
+		t.Fatalf("CleanUp failed: %v", err)
+	}
+
+	if _, err := os.Stat(files[0].path); !os.IsNotExist(err) {
+		t.Errorf("old.txt should be deleted")
+	}
+	if _, err := os.Stat(files[1].path); !os.IsNotExist(err) {
+		t.Errorf("mid.txt should be deleted")
+	}
+	if _, err := os.Stat(files[2].path); os.IsNotExist(err) {
+		t.Errorf("new.txt should exist")
+	}
+}

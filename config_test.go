@@ -1,0 +1,109 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func TestLoadConfig_SingleFile(t *testing.T) {
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.toml")
+
+	content := `
+[global]
+check_interval = "5m"
+min_free_percent = 20.0
+human_readable = true
+dry_run = true
+
+[[location]]
+partition = "/"
+target_dirs = ["/tmp"]
+`
+	if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	config, err := LoadConfig(configFile)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if config.Global.CheckInterval.Duration != 5*time.Minute {
+		t.Errorf("Expected CheckInterval 5m, got %v", config.Global.CheckInterval.Duration)
+	}
+	if config.Global.MinFreePercent != 20.0 {
+		t.Errorf("Expected MinFreePercent 20.0, got %f", config.Global.MinFreePercent)
+	}
+	if !config.Global.HumanReadable {
+		t.Errorf("Expected HumanReadable true")
+	}
+	if !config.Global.DryRun {
+		t.Errorf("Expected DryRun true")
+	}
+	if len(config.Locations) != 1 {
+		t.Fatalf("Expected 1 location, got %d", len(config.Locations))
+	}
+	if config.Locations[0].Partition != "/" {
+		t.Errorf("Expected partition /, got %s", config.Locations[0].Partition)
+	}
+}
+
+func TestLoadConfig_Directory(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// File 1: Global settings + 1 location
+	file1 := filepath.Join(tempDir, "01_main.toml")
+	content1 := `
+[global]
+check_interval = "10m"
+
+[[location]]
+partition = "/"
+target_dirs = ["/tmp"]
+`
+	if err := os.WriteFile(file1, []byte(content1), 0644); err != nil {
+		t.Fatalf("Failed to write file1: %v", err)
+	}
+
+	// File 2: More global settings + another location
+	file2 := filepath.Join(tempDir, "02_extra.toml")
+	content2 := `
+[global]
+min_free_percent = 15.0
+
+[[location]]
+partition = "/home"
+target_dirs = ["/home/user/cache"]
+`
+	if err := os.WriteFile(file2, []byte(content2), 0644); err != nil {
+		t.Fatalf("Failed to write file2: %v", err)
+	}
+
+	config, err := LoadConfig(tempDir)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	// Verify merging
+	if config.Global.CheckInterval.Duration != 10*time.Minute {
+		t.Errorf("Expected CheckInterval 10m, got %v", config.Global.CheckInterval.Duration)
+	}
+	if config.Global.MinFreePercent != 15.0 {
+		t.Errorf("Expected MinFreePercent 15.0, got %f", config.Global.MinFreePercent)
+	}
+	if len(config.Locations) != 2 {
+		t.Fatalf("Expected 2 locations, got %d", len(config.Locations))
+	}
+
+	// Order depends on file globbing, usually alphabetical
+	// We expect "/" then "/home" because 01_main < 02_extra
+	if config.Locations[0].Partition != "/" {
+		t.Errorf("Expected first partition /, got %s", config.Locations[0].Partition)
+	}
+	if config.Locations[1].Partition != "/home" {
+		t.Errorf("Expected second partition /home, got %s", config.Locations[1].Partition)
+	}
+}
