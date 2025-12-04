@@ -15,6 +15,7 @@ func main() {
 	partition := flag.String("partition", "", "Path to the partition to monitor (e.g., /)")
 	targetDir := flag.String("targetDir", "", "Path to the directory to clean up (e.g., /var/log/app)")
 	minFreePercent := flag.Float64("minFreePercent", 10.0, "Minimum percentage of free space to maintain")
+	minFreeBytes := flag.String("minFreeBytes", "", "Minimum absolute free space to maintain (e.g., 10GB, 500MB)")
 	checkInterval := flag.Duration("checkInterval", 1*time.Minute, "How often to check disk usage")
 	dryRun := flag.Bool("dryRun", false, "Simulate deletion without actually removing files")
 
@@ -55,11 +56,19 @@ func main() {
 	if useConfig {
 		runConfigMode(*configPath)
 	} else {
-		runLegacyMode(*partition, *targetDir, *minFreePercent, *checkInterval, *dryRun, *human)
+		var minFreeBytesValue uint64
+		if *minFreeBytes != "" {
+			var err error
+			minFreeBytesValue, err = parseBytes(*minFreeBytes)
+			if err != nil {
+				log.Fatalf("Invalid minFreeBytes value: %v", err)
+			}
+		}
+		runLegacyMode(*partition, *targetDir, *minFreePercent, minFreeBytesValue, *checkInterval, *dryRun, *human)
 	}
 }
 
-func runLegacyMode(partition, targetDir string, minFreePercent float64, checkInterval time.Duration, dryRun, humanReadable bool) {
+func runLegacyMode(partition, targetDir string, minFreePercent float64, minFreeBytes uint64, checkInterval time.Duration, dryRun, humanReadable bool) {
 	if partition == "" || targetDir == "" {
 		flag.Usage()
 		os.Exit(1)
@@ -69,6 +78,9 @@ func runLegacyMode(partition, targetDir string, minFreePercent float64, checkInt
 	log.Printf("Monitoring partition: %s", partition)
 	log.Printf("Target directory: %s", targetDir)
 	log.Printf("Minimum free space: %.2f%%", minFreePercent)
+	if minFreeBytes > 0 {
+		log.Printf("Minimum free bytes: %s", formatBytes(minFreeBytes))
+	}
 	log.Printf("Check interval: %v", checkInterval)
 	if dryRun {
 		log.Printf("DRY RUN MODE ENABLED")
@@ -78,10 +90,10 @@ func runLegacyMode(partition, targetDir string, minFreePercent float64, checkInt
 	defer ticker.Stop()
 
 	// Run once immediately
-	checkAndClean([]string{targetDir}, minFreePercent, dryRun, humanReadable)
+	checkAndClean([]string{targetDir}, minFreePercent, minFreeBytes, dryRun, humanReadable)
 
 	for range ticker.C {
-		checkAndClean([]string{targetDir}, minFreePercent, dryRun, humanReadable)
+		checkAndClean([]string{targetDir}, minFreePercent, minFreeBytes, dryRun, humanReadable)
 	}
 }
 
@@ -115,6 +127,11 @@ func runConfigMode(path string) {
 			minFree = *loc.MinFreePercent
 		}
 
+		minFreeBytes := config.Global.MinFreeBytes.Bytes
+		if loc.MinFreeBytes != nil {
+			minFreeBytes = loc.MinFreeBytes.Bytes
+		}
+
 		interval := config.Global.CheckInterval.Duration
 		if loc.CheckInterval != nil {
 			interval = loc.CheckInterval.Duration
@@ -140,17 +157,17 @@ func runConfigMode(path string) {
 		log.Printf("Starting monitor for directories: %v", loc.TargetDirs)
 		activeLocations++
 
-		go func(idx int, l LocationConfig, mf float64, iv time.Duration, dr, hr bool) {
+		go func(idx int, l LocationConfig, mf float64, mfb uint64, iv time.Duration, dr, hr bool) {
 			ticker := time.NewTicker(iv)
 			defer ticker.Stop()
 
 			// Run once immediately
-			checkAndClean(l.TargetDirs, mf, dr, hr)
+			checkAndClean(l.TargetDirs, mf, mfb, dr, hr)
 
 			for range ticker.C {
-				checkAndClean(l.TargetDirs, mf, dr, hr)
+				checkAndClean(l.TargetDirs, mf, mfb, dr, hr)
 			}
-		}(i, loc, minFree, interval, dryRun, humanReadable)
+		}(i, loc, minFree, minFreeBytes, interval, dryRun, humanReadable)
 	}
 
 	if activeLocations == 0 {
@@ -161,7 +178,7 @@ func runConfigMode(path string) {
 	<-done
 }
 
-func checkAndClean(targetDirs []string, minFreePercent float64, dryRun, humanReadable bool) {
+func checkAndClean(targetDirs []string, minFreePercent float64, minFreeBytes uint64, dryRun, humanReadable bool) {
 	if len(targetDirs) == 0 {
 		return
 	}
@@ -184,12 +201,31 @@ func checkAndClean(targetDirs []string, minFreePercent float64, dryRun, humanRea
 		log.Printf("[%s] Disk Usage: Total=%d, Free=%d (%.2f%%), Used=%d", partition, usage.Total, usage.Free, freePercent, usage.Used)
 	}
 
-	if freePercent < minFreePercent {
-		log.Printf("[%s] Free space (%.2f%%) is below minimum (%.2f%%). Initiating cleanup...", partition, freePercent, minFreePercent)
+	// Calculate target free bytes from percentage
+	targetFreeByPercent := uint64(float64(usage.Total) * (minFreePercent / 100))
 
-		// Calculate how many bytes we need to free to reach the target
-		// Target free bytes = Total * (minFreePercent / 100)
-		targetFreeBytes := uint64(float64(usage.Total) * (minFreePercent / 100))
+	// Use the larger of percentage-based or absolute minimum
+	targetFreeBytes := targetFreeByPercent
+	if minFreeBytes > targetFreeBytes {
+		targetFreeBytes = minFreeBytes
+	}
+
+	// Check if we need to clean up
+	needsCleanup := false
+	if minFreePercent > 0 && freePercent < minFreePercent {
+		needsCleanup = true
+	}
+	if minFreeBytes > 0 && usage.Free < minFreeBytes {
+		needsCleanup = true
+	}
+
+	if needsCleanup {
+		if minFreeBytes > 0 {
+			log.Printf("[%s] Free space (%.2f%% / %s) is below minimum (%.2f%% / %s). Initiating cleanup...",
+				partition, freePercent, formatBytes(usage.Free), minFreePercent, formatBytes(minFreeBytes))
+		} else {
+			log.Printf("[%s] Free space (%.2f%%) is below minimum (%.2f%%). Initiating cleanup...", partition, freePercent, minFreePercent)
+		}
 
 		err := CleanUp(targetDirs, targetFreeBytes, usage.Free, dryRun, humanReadable)
 		if err != nil {

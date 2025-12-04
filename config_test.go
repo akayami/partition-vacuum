@@ -104,3 +104,39 @@ target_dirs = ["/home/user/cache"]
 		t.Errorf("Expected second target dir /home/user/cache, got %v", config.Locations[1].TargetDirs)
 	}
 }
+
+func TestLoadConfig_MinFreeBytes(t *testing.T) {
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.toml")
+
+	content := `
+[global]
+check_interval = "5m"
+min_free_bytes = "10GB"
+
+[[location]]
+target_dirs = ["/tmp"]
+min_free_bytes = "5GB"
+`
+	if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	config, err := LoadConfig(configFile)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	expectedGlobalBytes := uint64(10 * 1024 * 1024 * 1024)
+	if config.Global.MinFreeBytes.Bytes != expectedGlobalBytes {
+		t.Errorf("Expected Global.MinFreeBytes %d, got %d", expectedGlobalBytes, config.Global.MinFreeBytes.Bytes)
+	}
+
+	expectedLocationBytes := uint64(5 * 1024 * 1024 * 1024)
+	if config.Locations[0].MinFreeBytes == nil {
+		t.Fatalf("Expected Location[0].MinFreeBytes to be set")
+	}
+	if config.Locations[0].MinFreeBytes.Bytes != expectedLocationBytes {
+		t.Errorf("Expected Location[0].MinFreeBytes %d, got %d", expectedLocationBytes, config.Locations[0].MinFreeBytes.Bytes)
+	}
+}

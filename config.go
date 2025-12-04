@@ -22,12 +22,14 @@ type GlobalConfig struct {
 	DryRun         bool     `toml:"dry_run"`
 	HumanReadable  bool     `toml:"human_readable"`
 	MinFreePercent float64  `toml:"min_free_percent"`
+	MinFreeBytes   byteSize `toml:"min_free_bytes"`
 }
 
 // LocationConfig defines a specific partition to monitor and directories to clean
 type LocationConfig struct {
 	TargetDirs     []string  `toml:"target_dirs"`
 	MinFreePercent *float64  `toml:"min_free_percent"` // Optional override
+	MinFreeBytes   *byteSize `toml:"min_free_bytes"`   // Optional override
 	CheckInterval  *duration `toml:"check_interval"`   // Optional override
 	DryRun         *bool     `toml:"dry_run"`          // Optional override
 }
@@ -76,6 +78,9 @@ func LoadConfig(path string) (*Config, error) {
 			}
 			if partialConfig.Global.MinFreePercent != 0 {
 				config.Global.MinFreePercent = partialConfig.Global.MinFreePercent
+			}
+			if partialConfig.Global.MinFreeBytes.Bytes != 0 {
+				config.Global.MinFreeBytes = partialConfig.Global.MinFreeBytes
 			}
 			if partialConfig.Global.DryRun {
 				config.Global.DryRun = true
