@@ -1,0 +1,9 @@
+*_test.go
+aur/
+.github/
+README.md
+LICENSE
+build.sh
+Dockerfile
+.dockerignore
+.git/
