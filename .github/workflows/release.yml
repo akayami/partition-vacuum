@@ -14,8 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
+        # User-consumable CLI targets: linux/arm64+amd64, macOS/arm64+amd64,
+        # windows/amd64 only. windows/arm64 is excluded because Windows on
+        # ARM is a vanishingly small workstation share — drop the build
+        # entry instead of shipping an artifact nobody will install.
+        include:
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
