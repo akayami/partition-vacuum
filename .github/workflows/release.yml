@@ -50,7 +50,9 @@ jobs:
           name: partition-vacuum-${{ matrix.goos }}-${{ matrix.goarch }}
           path: partition-vacuum-*
           if-no-files-found: error
-          retention-days: 7
+          # Conduit to the release job only — consumed minutes later by the
+          # release job, so the shortest retention applies (BOOK-33).
+          retention-days: 1
 
   aur-build:
     name: Build AUR Package
@@ -121,7 +123,7 @@ jobs:
           name: partition-vacuum-aur
           path: aur-dist/*
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 1
 
   release:
     name: Create Release
